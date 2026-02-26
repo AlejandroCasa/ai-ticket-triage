@@ -25,6 +25,9 @@ class Ticket(Base):
     description = Column(Text, nullable=False)
     urgency = Column(String(20), default="Medium")
 
+    # Stores SHA256 hash of the description for O(1) deduplication lookup
+    content_hash = Column(String(64), index=True, nullable=True)
+
     # This field will be filled by our AI
     category = Column(String(100), default=None, nullable=True)
 
@@ -35,7 +38,7 @@ class Ticket(Base):
         """
         String representation for debugging and logging (Observability).
         """
-        return f"<Ticket(id={self.id}, user_id='{self.user_id}', status='{self.status}')>"
+        return f"<Ticket(id={self.id}, hash='{self.content_hash}' status='{self.status}')>"
 
 
 def init_db(db_url: str = "sqlite:///tickets.db") -> sessionmaker:
@@ -51,6 +54,6 @@ def init_db(db_url: str = "sqlite:///tickets.db") -> sessionmaker:
     # echo=False prevents SQL query spam in stdout, enabling cleaner JSON logs elsewhere
     engine = create_engine(db_url, echo=False)
     Base.metadata.create_all(engine)
-    
+
     # Return a configured session factory
     return sessionmaker(bind=engine)
