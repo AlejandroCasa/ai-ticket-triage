@@ -1,0 +1,16 @@
+app:
+  name: "AI Ticket Triage Engine"
+  version: "1.0.0"
+
+triage:
+  # Business rules: Categories available for classification
+  categories:
+    - "Password Reset"
+    - "Software Issue"
+    - "Hardware Failure"
+    - "Network Connectivity"
+    - "Access Request"
+    - "Security Alert"
+
+  # Confidence threshold to auto-accept AI decision (Future feature)
+  confidence_threshold: 0.8
