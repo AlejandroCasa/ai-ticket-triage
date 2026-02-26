@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Constants
-BATCH_SIZE = 20
-TOTAL_BATCHES = 5
+BATCH_SIZE = 5
+TOTAL_BATCHES = 1
 MODEL_NAME = "gemini-1.5-flash"  # Using 1.5 Flash for stability and speed
 
 
@@ -63,10 +63,10 @@ def generate_batch(client: genai.Client, model_name: str, batch_size: int = 20) 
                     temperature=0.7,
                 ),
             )
-            
+
             # Parse the JSON response
             data = json.loads(response.text)
-            
+
             # Basic validation: ensure it's a list
             if isinstance(data, list):
                 return data
@@ -76,14 +76,14 @@ def generate_batch(client: genai.Client, model_name: str, batch_size: int = 20) 
 
         except json.JSONDecodeError:
             logger.error("Failed to decode JSON from AI response. Retrying...")
-        
+
         except Exception as e:
             error_str = str(e)
             if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
                 if attempt == max_retries - 1:
                     logger.error("Max retries exceeded for this batch.")
                     return []
-                
+
                 sleep_time = (base_delay * (2**attempt)) + random.uniform(0, 1)
                 logger.warning(
                     f"Rate limit hit (429). Retrying in {sleep_time:.2f}s... (Attempt {attempt + 1})"
@@ -117,7 +117,7 @@ def main() -> None:
 
     # 3. Generation Loop
     total_inserted = 0
-    
+
     with SessionLocal() as session:
         for i in range(TOTAL_BATCHES):
             logger.info(f"Requesting Batch {i+1}/{TOTAL_BATCHES} from AI...")

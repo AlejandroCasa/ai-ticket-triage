@@ -1,0 +1,27 @@
+services:
+  triage-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: triage-engine-api
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./:/app
+      - chroma_data:/app/chroma_data
+      - sqlite_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  chroma_data:
+    name: triage_chroma_data
+  sqlite_data:
+    name: triage_sqlite_data
