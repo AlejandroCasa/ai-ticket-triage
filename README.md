@@ -23,18 +23,18 @@ The system utilizes an Event-Driven API Gateway pattern paired with a local Vect
 
 ```mermaid
 graph TD
-    User((Ops Team / Webhook)) -->|POST /classify| API[FastAPI Gateway]
-    API -->|HTTP 202 Accepted| User
+    User((Ops Team / Webhook)) -->|"POST /classify"| API[FastAPI Gateway]
+    API -->|"HTTP 202 Accepted"| User
 
-    API -->|Background Task| Worker[Async Worker]
-    Worker -->|1. Check Similarity| Chroma[(ChromaDB Semantic Cache)]
-    Chroma -- Cache Hit --> Worker
+    API -->|"Background Task"| Worker[Async Worker]
+    Worker -->|"1. Check Similarity"| Chroma[(ChromaDB Semantic Cache)]
+    Chroma -- "Cache Hit" --> Worker
 
-    Worker -->|2. Cache Miss + RAG Context| LLM{Gemini 1.5 API}
+    Worker -->|"2. Cache Miss + RAG Context"| LLM{{Gemini 3 API}}
     LLM --> Worker
 
-    Worker -->|3. Persist State| SQL[(SQLite State DB)]
-    User -->|GET /tickets/{id}| API
+    Worker -->|"3. Persist State"| SQL[(SQLite State DB)]
+    User -->|"GET /tickets/[id]"| API
     API --> SQL
 
 ```
