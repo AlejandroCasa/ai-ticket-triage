@@ -1,7 +1,7 @@
 import logging
 import random
 import time
-from typing import List
+from typing import Dict, List, Optional
 
 from google import genai
 from google.genai import types
@@ -11,10 +11,11 @@ from src.interfaces.llm_provider import LLMProvider
 # Initialize logger for this module
 logger = logging.getLogger(__name__)
 
+
 class GeminiAdapter(LLMProvider):
     """
-    Adapter implementation for Google Gemini API using the new 'google-genai' SDK.
-    Includes Exponential Backoff strategy for handling Rate Limits (429).
+    Adapter implementation for Google Gemini API using the 'google-genai' SDK.
+    Includes Exponential Backoff strategy and Dynamic Few-Shot Prompting (RAG).
     """
 
     def __init__(self, api_key: str) -> None:
@@ -22,15 +23,32 @@ class GeminiAdapter(LLMProvider):
             raise ValueError("Gemini API Key is missing.")
 
         self.client = genai.Client(api_key=api_key)
-        # Note: Ensure 'gemini-flash-latest' resolves correctly in your region. 
-        # If 404 occurs, revert to specific version 'gemini-1.5-flash'.
         self.model_name = "gemini-flash-latest"
 
-    def classify_ticket(self, description: str, categories: List[str]) -> str:
+    def classify_ticket(
+        self, 
+        description: str, 
+        categories: List[str],
+        context_examples: Optional[List[Dict[str, str]]] = None
+    ) -> str:
+
+        # --- DYNAMIC PROMPT CONSTRUCTION (RAG / FEW-SHOT) ---
         prompt = f"""
         Role: IT Service Desk Automation Bot.
         Task: Classify the ticket below into exactly one of these categories: {categories}.
+        """
 
+        # Inject historical context if available (Human-in-the-Loop learning)
+        if context_examples:
+            prompt += "\nHere are some past examples of similar tickets and their CORRECT classifications:\n"
+            for ex in context_examples:
+                # Sanitize inputs to prevent prompt injection or formatting breaks
+                ex_desc = ex.get("description", "").replace("\n", " ")
+                ex_cat = ex.get("category", "Unclassified")
+                prompt += f"- Ticket: '{ex_desc}' -> Category: '{ex_cat}'\n"
+
+        prompt += f"""
+        Now, classify this NEW ticket:
         Ticket: "{description}"
 
         Constraint: Return ONLY the category name. No markdown, no punctuation.
@@ -38,7 +56,6 @@ class GeminiAdapter(LLMProvider):
 
         # --- RETRY LOGIC CONFIGURATION ---
         max_retries = 5
-        # Initial wait time in seconds (conservative start to respect the limit)
         base_delay = 4.0
 
         for attempt in range(max_retries):
@@ -48,17 +65,14 @@ class GeminiAdapter(LLMProvider):
                     model=self.model_name,
                     contents=prompt,
                     config=types.GenerateContentConfig(
-                        # Zero temperature for deterministic classification
-                        temperature=0.0
+                        temperature=0.0 # Zero temperature for deterministic classification
                     ),
                 )
 
-                # Log success for traceability (debug level to avoid noise)
                 logger.debug(f"Ticket classified successfully on attempt {attempt + 1}")
                 return response.text.strip()
 
             except Exception as e:
-                # Convert exception to string to check for specific error codes
                 error_str = str(e)
 
                 # Check if the error is related to Rate Limiting (Quota Exceeded)
@@ -66,15 +80,11 @@ class GeminiAdapter(LLMProvider):
                     if attempt == max_retries - 1:
                         logger.error(
                             "Max retries exceeded for ticket.",
-                            extra={
-                                "error": error_str, 
-                                "ticket_snippet": description[:30]
-                            }
+                            extra={"error": error_str, "ticket_snippet": description[:30]}
                         )
                         return "Unclassified"
 
                     # Exponential Backoff + Jitter Strategy
-                    # Formula: delay * 2^attempt + random_noise
                     sleep_time = (base_delay * (2 ** attempt)) + random.uniform(0, 1)
 
                     logger.warning(
@@ -88,11 +98,8 @@ class GeminiAdapter(LLMProvider):
                     time.sleep(sleep_time)
 
                 else:
-                    # Non-retriable errors (e.g., Authentication failed, Bad Request)
-                    logger.error(
-                        "Gemini API Error (Non-Retriable)",
-                        extra={"error": error_str}
-                    )
+                    # Non-retriable errors
+                    logger.error("Gemini API Error (Non-Retriable)", extra={"error": error_str})
                     return "Unclassified"
 
         return "Unclassified"
