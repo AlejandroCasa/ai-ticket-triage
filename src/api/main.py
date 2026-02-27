@@ -6,7 +6,8 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from src.adapters.gemini_adapter import GeminiAdapter
+# from src.adapters.gemini_adapter import GeminiAdapter
+from src.adapters.ollama_adapter import OllamaAdapter
 from src.api.schemas import ClassificationRequest, ClassificationResponse
 from src.core.config import get_categories, load_config
 from src.core.database import Ticket, init_db
@@ -18,25 +19,42 @@ logger = logging.getLogger("API")
 
 app_state = {}
 
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # Initialize infrastructure on startup
+#     logger.info("🚀 Starting API Gateway in Asynchronous Mode...")
+    
+#     app_state["categories"] = get_categories(load_config("config.yaml"))
+    
+#     # Ensure data directory exists if running via Docker Compose
+#     os.makedirs("/app/data", exist_ok=True)
+#     app_state["SessionLocal"] = init_db(os.getenv("DB_URL", "sqlite:////app/data/tickets.db"))
+    
+#     app_state["semantic_cache"] = SemanticCache(persist_directory="/app/chroma_data")
+
+#     api_key = os.getenv("GEMINI_API_KEY")
+#     if api_key:
+#         app_state["classifier"] = GeminiAdapter(api_key)
+#         logger.info("🤖 AI Adapter connected.")
+#     else:
+#         app_state["classifier"] = None
+
+#     yield
+#     logger.info("🛑 Shutting down API Gateway...")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize infrastructure on startup
     logger.info("🚀 Starting API Gateway in Asynchronous Mode...")
-    
+
     app_state["categories"] = get_categories(load_config("config.yaml"))
-    
-    # Ensure data directory exists if running via Docker Compose
     os.makedirs("/app/data", exist_ok=True)
     app_state["SessionLocal"] = init_db(os.getenv("DB_URL", "sqlite:////app/data/tickets.db"))
-    
     app_state["semantic_cache"] = SemanticCache(persist_directory="/app/chroma_data")
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        app_state["classifier"] = GeminiAdapter(api_key)
-        logger.info("🤖 AI Adapter connected.")
-    else:
-        app_state["classifier"] = None
+    # --- SWAP THE LLM PROVIDER HERE ---
+    # We bypass Gemini and inject the local Ollama adapter
+    app_state["classifier"] = OllamaAdapter(host="http://ollama:11434", model_name="llama3")
+    logger.info("🧠 Sovereign Local AI Adapter connected.")
 
     yield
     logger.info("🛑 Shutting down API Gateway...")

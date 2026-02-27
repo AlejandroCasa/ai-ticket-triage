@@ -1,4 +1,15 @@
 services:
+  # --- LOCAL INFERENCE ENGINE ---
+  ollama:
+    image: ollama/ollama
+    container_name: ollama_engine
+    volumes:
+      # Critical: Persist model weights so they survive container restarts
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+
   triage-api:
     build:
       context: .
@@ -13,6 +24,9 @@ services:
       - ./:/app
       - chroma_data:/app/chroma_data
       - sqlite_data:/app/data
+    depends_on:
+      # Critical: Force the API to wait for the LLM container
+      - ollama
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -25,3 +39,5 @@ volumes:
     name: triage_chroma_data
   sqlite_data:
     name: triage_sqlite_data
+  ollama_data:
+    name: triage_ollama_data
