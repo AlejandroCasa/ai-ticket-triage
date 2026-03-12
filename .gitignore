@@ -26,4 +26,7 @@ env/
 Thumbs.db
 
 
-*.db
+*.dbchroma_data/
+data/
+venv/
+__pycache__/
