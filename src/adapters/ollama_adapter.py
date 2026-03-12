@@ -48,7 +48,7 @@ class OllamaAdapter(LLMProvider):
                         "temperature": 0.0 # Zero temperature for deterministic classification
                     }
                 },
-                timeout=60 # Extended timeout because local CPU inference is slow
+                timeout=180 # Extended timeout because local CPU inference is slow
             )
             response.raise_for_status()
 

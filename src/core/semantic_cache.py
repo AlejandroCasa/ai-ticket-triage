@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, List, Optional
+from chromadb.utils import embedding_functions
 
 import chromadb
 
@@ -9,20 +10,23 @@ logger = logging.getLogger("SemanticCache")
 class SemanticCache:
     """
     Manages the local vector database for semantic caching and RAG context.
-    Uses ChromaDB's default local embedding model (all-MiniLM-L6-v2) 
+    Uses ChromaDB's default local embedding model (all-MiniLM-L6-v2)
     to ensure zero API cost for text vectorization.
     """
-    
     def __init__(self, persist_directory: str = "./chroma_data") -> None:
-        # Initialize persistent local storage for vectors
         self.client = chromadb.PersistentClient(path=persist_directory)
-        
-        # Get or create the collection using Cosine Similarity
+
+        # Inyectamos un modelo optimizado para más de 50 idiomas (incluido español)
+        multilingual_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name="paraphrase-multilingual-MiniLM-L12-v2"
+        )
+
         self.collection = self.client.get_or_create_collection(
             name="ticket_cache",
-            metadata={"hnsw:space": "cosine"} 
+            metadata={"hnsw:space": "cosine"},
+            embedding_function=multilingual_ef
         )
-        logger.info(f"🧠 Semantic Cache initialized at {persist_directory}")
+        logger.info(f"🧠 Multilingual Semantic Cache initialized at {persist_directory}")
 
     def check_cache(self, description: str, threshold: float = 0.5) -> Optional[str]:
         """

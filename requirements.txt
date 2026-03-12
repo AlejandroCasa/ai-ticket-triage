@@ -6,3 +6,5 @@ fastapi
 uvicorn[standard]
 pydantic
 chromadb
+sqlalchemy
+sentence_transformers
